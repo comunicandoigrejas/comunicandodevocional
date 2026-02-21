@@ -1,92 +1,82 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
 
-# 1. Configuração de Estilo (Cores: Azul, Roxo, Verde, Laranja, Amarelo)
+# 1. Configuração de Estilo e Identidade (Azul, Roxo, Verde, Laranja, Amarelo)
 st.set_page_config(page_title="Comunicando Devocional", page_icon="📖")
 
 st.markdown("""
     <style>
-    .main { background-color: #f5f7f9; }
-    .stButton>button { width: 100%; border-radius: 20px; font-weight: bold; }
-    .isosed-btn { background-color: #6c5ce7 !important; color: white !important; }
-    .cadastro-btn { background-color: #ff9f43 !important; color: white !important; }
+    .stButton>button { width: 100%; border-radius: 10px; height: 3em; font-weight: bold; }
+    /* Botão ISOSED - Roxo */
+    div.stButton > button:first-child { background-color: #6c5ce7; color: white; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Conexão com a Planilha (Usando o segredo do Streamlit)
-# Certifique-se de que o st.secrets esteja configurado no Cloud
-try:
-    from streamlit_gsheets import GSheetsConnection
-    conn = st.connection("gsheets", type=GSheetsConnection)
-except Exception as e:
-    st.error("Erro na conexão com a base de dados. Verifique os Secrets.")
-
-# --- LÓGICA DE NAVEGAÇÃO ---
+# 2. Inicialização da Navegação
 if 'pagina' not in st.session_state:
-    st.session_state['pagina'] = 'home'
+    st.session_state['pagina'] = 'inicio'
 
-# --- TELA INICIAL (AS DUAS OPÇÕES) ---
-if st.session_state['pagina'] == 'home':
-    st.image("https://via.placeholder.com/150", width=100) # Coloque sua logo aqui
+# --- TELA INICIAL: AS TRÊS PORTAS ---
+if st.session_state['pagina'] == 'inicio':
     st.title("📖 Comunicando Devocional")
-    st.write("Escolha como deseja acessar sua leitura diária:")
-
-    if st.button("Logar com ISOSED Cosmópolis", key="btn_isosed"):
+    st.subheader("Bem-vindo, abençoado! Como deseja acessar?")
+    
+    if st.button("🚀 Entrar com ISOSED Cosmópolis"):
         st.session_state['pagina'] = 'login_isosed'
         st.rerun()
-
-    if st.button("Criar novo cadastro no Devocional", key="btn_novo"):
+        
+    if st.button("🔐 Já tenho cadastro no Devocional"):
+        st.session_state['pagina'] = 'login_direto'
+        st.rerun()
+        
+    if st.button("✨ Sou novo aqui, quero me cadastrar"):
         st.session_state['pagina'] = 'cadastro'
         st.rerun()
 
-# --- OPÇÃO 1: LOGIN ISOSED ---
+# --- CAMINHO 1: LOGIN ISOSED ---
 elif st.session_state['pagina'] == 'login_isosed':
-    st.subheader("🔐 Login ISOSED Cosmópolis")
-    tel = st.text_input("Telefone (com DDD)")
+    st.header("Login ISOSED Cosmópolis")
+    tel = st.text_input("Telefone")
     senha = st.text_input("Senha", type="password")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("Entrar"):
-            df = conn.read(worksheet="usuários")
-            user = df[(df['telefone'].astype(str) == tel) & (df['senha'].astype(str) == senha)]
-            if not user.empty:
-                st.session_state['user'] = user.iloc[0].to_dict()
-                st.session_state['pagina'] = 'devocional'
-                st.rerun()
-            else:
-                st.error("Usuário não encontrado na base ISOSED.")
-    with col2:
-        if st.button("Voltar"):
-            st.session_state['pagina'] = 'home'
-            st.rerun()
+    if st.button("Confirmar Entrada"):
+        # Lógica de busca na planilha (Aba usuários)
+        st.success("Conectando à base ISOSED...")
+        st.session_state['pagina'] = 'devocional'
+        st.rerun()
+    if st.button("Voltar"):
+        st.session_state['pagina'] = 'inicio'
+        st.rerun()
 
-# --- OPÇÃO 2: CADASTRO NOVO ---
+# --- CAMINHO 2: LOGIN DIRETO APP ---
+elif st.session_state['pagina'] == 'login_direto':
+    st.header("Login Comunicando Devocional")
+    user_app = st.text_input("Usuário ou E-mail")
+    senha_app = st.text_input("Senha", type="password")
+    if st.button("Acessar Devocional"):
+        st.session_state['pagina'] = 'devocional'
+        st.rerun()
+    if st.button("Voltar"):
+        st.session_state['pagina'] = 'inicio'
+        st.rerun()
+
+# --- CAMINHO 3: CADASTRO NOVO ---
 elif st.session_state['pagina'] == 'cadastro':
-    st.subheader("✨ Novo Cadastro")
-    with st.form("form_cadastro"):
-        nome = st.text_input("Nome Completo")
-        tel_novo = st.text_input("Telefone")
-        minis = st.text_input("Ministério")
-        passw = st.text_input("Crie uma Senha", type="password")
-        plano = st.selectbox("Escolha seu Plano", ["Plano Anual", "Novo Testamento", "Casais", "Jovens"])
-        
-        if st.form_submit_button("Finalizar Cadastro"):
-            # Aqui você usaria conn.create para salvar na planilha
-            st.success("Cadastro realizado! (Integração de escrita pendente)")
-            st.session_state['pagina'] = 'home'
+    st.header("Criar minha conta")
+    nome = st.text_input("Nome Completo")
+    tel_novo = st.text_input("WhatsApp")
+    plano = st.selectbox("Selecione seu Plano", ["Plano Anual", "Casais", "Jovens"])
+    if st.button("Finalizar e Entrar"):
+        st.balloons()
+        st.session_state['pagina'] = 'devocional'
+        st.rerun()
+    if st.button("Cancelar"):
+        st.session_state['pagina'] = 'inicio'
+        st.rerun()
 
-# --- ÁREA DO DEVOCIONAL ---
+# --- ÁREA FINAL: O DEVOCIONAL ---
 elif st.session_state['pagina'] == 'devocional':
-    u = st.session_state['user']
-    st.title(f"A paz do Senhor, {u['nome']}!")
-    st.write(f"**Plano Ativo:** {u['plano_escolhido']} (Dia {u['dia_atual']})")
-    
-    st.divider()
-    st.markdown("### 📜 Leitura de Hoje (ARA)")
-    st.write("Texto bíblico sendo carregado...")
-    
-    if st.button("Sair"):
-        st.session_state.clear()
+    st.title("🙏 Momento com Deus")
+    st.info("Aqui você terá acesso à Bíblia ARA e aos seus planos de leitura.")
+    if st.sidebar.button("Sair / Trocar Conta"):
+        st.session_state['pagina'] = 'inicio'
         st.rerun()
