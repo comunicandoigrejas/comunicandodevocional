@@ -1,52 +1,67 @@
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
+import pandas as pd
 
-# Configuração da página com as cores da ISOSED
-st.set_page_config(page_title="Devocional ISOSED", page_icon="🙏")
+# Configuração da página - Cores que você pediu
+st.set_page_config(page_title="Devocional ISOSED", page_icon="📖")
 
-# Conexão com a Planilha (Certifique-se de configurar os Secrets no Streamlit Cloud!)
-conn = st.connection("gsheets", type=GSheetsConnection)
+# Estilo visual Comunicando Igrejas
+st.markdown("""
+    <style>
+    .stApp { background: linear-gradient(to right, #6c5ce7, #a29bfe); color: white; }
+    .stButton>button { background-color: #ff9f43; border: none; color: white; }
+    </style>
+    """, unsafe_allow_html=True)
 
-def login():
-    st.markdown("<h2 style='color: #6c5ce7;'>ISOSED Cosmópolis</h2>", unsafe_allow_html=True)
-    tel = st.text_input("Telefone")
+# Tenta conectar na planilha
+try:
+    conn = st.connection("gsheets", type=GSheetsConnection)
+except Exception as e:
+    st.error(f"Erro de conexão: {e}")
+
+# --- TELA DE LOGIN ---
+if 'logado' not in st.session_state:
+    st.session_state['logado'] = False
+
+if not st.session_state['logado']:
+    st.title("🛡️ ISOSED Cosmópolis")
+    st.subheader("Login do Devocional")
+    
+    tel = st.text_input("Telefone (igual na planilha)")
     pw = st.text_input("Senha", type="password")
     
-    if st.button("Entrar"):
-        df = conn.read(worksheet="usuários")
-        # Filtra pelo telefone e senha da sua planilha
-        user = df[(df['telefone'].astype(str) == tel) & (df['senha'].astype(str) == pw)]
-        
-        if not user.empty:
-            st.session_state['user'] = user.iloc[0].to_dict()
-            st.rerun()
-        else:
-            st.error("Dados não encontrados na base do ISOSED.")
+    if st.button("Entrar no Plano de Leitura"):
+        try:
+            df = conn.read(worksheet="usuários")
+            # Ajuste: garantindo que telefone e senha sejam comparados como texto
+            user = df[(df['telefone'].astype(str) == str(tel)) & (df['senha'].astype(str) == str(pw))]
+            
+            if not user.empty:
+                st.session_state['logado'] = True
+                st.session_state['user'] = user.iloc[0].to_dict()
+                st.rerun()
+            else:
+                st.error("Irmão, não encontramos esse telefone ou senha.")
+        except Exception as e:
+            st.warning("Verifique se o nome da aba na planilha é exatamente 'usuários'.")
+            st.error(f"Detalhe do erro: {e}")
 
-if 'user' not in st.session_state:
-    login()
+# --- ÁREA DO IRMÃO ---
 else:
     u = st.session_state['user']
+    st.header(f"A paz do Senhor, {u['nome']}!")
     
-    # Menu em Abas
-    aba1, aba2, aba3 = st.tabs(["📖 Devocional", "📈 Progresso", "👤 Perfil"])
+    tab1, tab2 = st.tabs(["📖 Leitura", "⚙️ Dados"])
     
-    with aba1:
-        st.header(f"Olá, {u['nome']}!")
+    with tab1:
         st.subheader(f"Plano: {u['plano_escolhido']}")
-        st.info(f"Hoje é o seu **Dia {u['dia_atual']}** de leitura.")
-        # Espaço para o texto bíblico ARA
+        st.info(f"Você está no **Dia {u['dia_atual']}**")
         st.write("---")
-        st.markdown("### 📜 Leitura do Dia")
-        st.write("Aqui buscaremos o texto da Bíblia ARA correspondente ao plano...")
+        st.markdown("### 📜 Palavra de Hoje (ARA)")
+        st.write("Em breve: O texto bíblico aparecerá aqui automaticamente!")
         
-    with aba2:
-        st.write("### Seu desempenho")
-        st.progress(int(u['dia_atual']) / 365) # Exemplo para plano anual
-        
-    with aba3:
+    with tab2:
         st.write(f"**Ministério:** {u['ministerio']}")
-        st.write(f"**Data de Nascimento:** {u['nascimento']}")
-        if st.button("Sair"):
-            del st.session_state['user']
+        if st.sidebar.button("Sair"):
+            st.session_state['logado'] = False
             st.rerun()
