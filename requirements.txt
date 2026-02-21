@@ -1,5 +1,3 @@
 streamlit
-streamlit-authenticator==0.3.4
-PyYAML
 st-gsheets-connection
 pandas
