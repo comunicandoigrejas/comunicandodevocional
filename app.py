@@ -1,89 +1,68 @@
 import streamlit as st
-import streamlit_authenticator as stauth
-import yaml
-from yaml.loader import SafeLoader
+from streamlit_gsheets import GSheetsConnection
+import pandas as pd
 
-# 1. Configuração da Identidade Visual (Cores Comunicando Igrejas)
-st.set_page_config(page_title="Devocional Comunicando Igrejas", page_icon="📖")
+# Configuração visual - Cores Comunicando Igrejas
+st.set_page_config(page_title="Devocional ISOSED", page_icon="🙏")
 
-# Mock de Banco de Dados (Em um app real, carregaríamos de um arquivo YAML ou Banco de Dados)
-# Aqui definimos o usuário: 'willian' e a senha: '123' (exemplo abençoado)
-config = {
-    'credentials': {
-        'usernames': {
-            'willian': {
-                'email': 'contato@comunicandoigrejas.com',
-                'name': 'Willian - Comunicando Igrejas',
-                'password': 'abc' # No código real, use senhas criptografadas
-            }
-        }
-    },
-    'cookie': {
-        'expiry_days': 30,
-        'key': 'devocional_signature',
-        'name': 'devocional_cookie'
-    }
-}
+# Conexão com a Planilha
+conn = st.connection("gsheets", type=GSheetsConnection)
 
-# Criptografia simples para o exemplo (O Streamlit requer isso)
-authenticator = stauth.Authenticate(
-    config['credentials'],
-    config['cookie']['name'],
-    config['cookie']['key'],
-    config['cookie']['expiry_days']
-)
+def carregar_dados():
+    # Carrega a aba 'usuários' (ajuste o nome se for diferente na planilha)
+    return conn.read(worksheet="usuários")
 
-# Renderiza o formulário de Login
-# O parâmetro 'location' define onde o formulário aparece
-# O título agora é definido dentro da função ou por um st.header antes
-st.header("Login - Paz do Senhor!")
-authentication_status = authenticator.login(location='main')
+def atualizar_progresso(telefone, novo_dia):
+    # Aqui adicionaríamos a lógica para salvar de volta na planilha
+    st.info(f"Progresso do telefone {telefone} atualizado para o dia {novo_dia}!")
 
-# Nas versões novas, os dados ficam guardados no st.session_state
-name = st.session_state["name"]
-authentication_status = st.session_state["authentication_status"]
-username = st.session_state["username"]
+# --- TELA DE LOGIN ---
+if 'logado' not in st.session_state:
+    st.session_state['logado'] = False
 
-if authentication_status:
-    # --- ÁREA LOGADA DO IRMÃO ---
-    authenticator.logout('Sair do App', 'sidebar')
+if not st.session_state['logado']:
+    st.markdown("<h2 style='color: #2e86de;'>Portal ISOSED Cosmópolis</h2>", unsafe_allow_html=True)
+    st.write("Identifique-se para continuar sua leitura bíblica.")
     
-    st.sidebar.title(f"Bem-vindo, {name}!")
-    st.sidebar.markdown("---")
+    campo_tel = st.text_input("Telefone (com DDD)")
+    campo_senha = st.text_input("Senha", type="password")
     
-    # Simulação de progresso salvo (isso viria de um banco de dados)
-    # No Streamlit, usamos 'session_state' para manter enquanto o app roda
-    if 'progresso' not in st.session_state:
-        st.session_state['progresso'] = 10  # Exemplo: parou no dia 10
+    if st.button("Entrar no Devocional"):
+        df = carregar_dados()
+        # Busca o usuário pelo telefone e senha
+        usuario = df[(df['telefone'].astype(str) == campo_tel) & (df['senha'].astype(str) == campo_senha)]
+        
+        if not usuario.empty:
+            st.session_state['logado'] = True
+            st.session_state['user_data'] = usuario.iloc[0].to_dict()
+            st.rerun()
+        else:
+            st.error("Varão, telefone ou senha incorretos. Verifique seus dados no ISOSED.")
 
-    st.title("🙏 Seu Progresso de Leitura")
+# --- ÁREA DO DEVOCIONAL ---
+else:
+    user = st.session_state['user_data']
+    st.sidebar.title(f"A paz do Senhor,")
+    st.sidebar.subheader(f"{user['nome']}")
+    st.sidebar.markdown(f"**Ministério:** {user['ministerio']}")
     
-    plano = st.selectbox("Selecione seu plano ativo:", ["Bíblia em 1 Ano", "Casais 30 Dias", "Jovens 90 Dias"])
-    
-    # Barra de progresso baseada no que foi salvo
-    progresso_atual = st.session_state['progresso']
-    st.write(f"Varão, você está no **Dia {progresso_atual}** do plano {plano}.")
-    st.progress(progresso_atual / 365 if "1 Ano" in plano else progresso_atual / 30)
+    if st.sidebar.button("Sair"):
+        st.session_state['logado'] = False
+        st.rerun()
 
-    if st.button("✅ Marcar dia de hoje como lido"):
-        st.session_state['progresso'] += 1
-        st.success("Glória a Deus! Progresso salvo com sucesso.")
+    # Conteúdo Principal
+    st.title(f"📖 {user['plano_escolhido']}")
+    dia_atual = int(user['dia_atual'])
+    
+    st.info(f"✨ Você está no **Dia {dia_atual}** da sua jornada com Deus.")
+    
+    # Simulação da Versão ARA
+    st.subheader("Leitura de Hoje (ARA)")
+    st.write("Aqui aparecerá o texto bíblico baseado no dia e plano...")
+    
+    if st.button("Marcar dia como concluído"):
+        # Lógica para avançar o dia
+        novo_dia = dia_atual + 1
+        atualizar_progresso(user['telefone'], novo_dia)
         st.balloons()
-
-    # --- ÁREA DA PALAVRA (ARA) ---
-    st.markdown("---")
-    st.subheader("📖 Leitura de Hoje (Versão ARA)")
-    st.info("João 3:16 - 'Porque Deus amou ao mundo de tal maneira que deu o seu Filho unigênito, para que todo o que nele crê não pereça, mas tenha a vida eterna.'")
-
-elif authentication_status == False:
-    st.error('Usuário ou senha incorretos, irmão. Tente novamente.')
-elif authentication_status == None:
-    st.warning('Por favor, insira suas credenciais para continuar a leitura.')
-
-# Rodapé Colorido
-st.markdown("""
-    <style>
-    .footer { position: fixed; bottom: 0; width: 100%; text-align: center; color: #8e44ad; }
-    </style>
-    <div class="footer">Comunicando Igrejas - Levando a Palavra ao Digital</div>
-    """, unsafe_allow_html=True)
+        st.success("Glória a Deus! Até amanhã!")
