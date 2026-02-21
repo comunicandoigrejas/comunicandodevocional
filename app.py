@@ -1,62 +1,81 @@
 import streamlit as st
-import datetime
+import streamlit_authenticator as stauth
+import yaml
+from yaml.loader import SafeLoader
 
-# Configurações da Página
+# 1. Configuração da Identidade Visual (Cores Comunicando Igrejas)
 st.set_page_config(page_title="Devocional Comunicando Igrejas", page_icon="📖")
 
-# Customização de Cores (CSS)
-st.markdown("""
-    <style>
-    .main { background-color: #f0f2f6; }
-    .stButton>button { background-color: #6c5ce7; color: white; border-radius: 10px; }
-    .title-text { color: #2e86de; font-weight: bold; }
-    .sidebar-text { color: #d35400; }
-    </style>
-    """, unsafe_allow_html=True)
+# Mock de Banco de Dados (Em um app real, carregaríamos de um arquivo YAML ou Banco de Dados)
+# Aqui definimos o usuário: 'willian' e a senha: '123' (exemplo abençoado)
+config = {
+    'credentials': {
+        'usernames': {
+            'willian': {
+                'email': 'contato@comunicandoigrejas.com',
+                'name': 'Willian - Comunicando Igrejas',
+                'password': 'abc' # No código real, use senhas criptografadas
+            }
+        }
+    },
+    'cookie': {
+        'expiry_days': 30,
+        'key': 'devocional_signature',
+        'name': 'devocional_cookie'
+    }
+}
 
-# Título Principal
-st.markdown("<h1 class='title-text'>📖 Devocional Comunicando Igrejas</h1>", unsafe_allow_html=True)
-st.write(f"Bem-vindo, varão! Hoje é dia {datetime.date.today().strftime('%d/%m/%Y')}. Que a paz do Senhor esteja contigo.")
-
-# --- MENU LATERAL ---
-st.sidebar.header("🙏 Menu de Edificação")
-plano_selecionado = st.sidebar.selectbox(
-    "Escolha seu Plano de Leitura:",
-    ["Devocional Diário", "Bíblia em 1 Ano (ARA)", "Bíblia Cronológica", "Antigo Testamento", "Novo Testamento", "Casais (30 dias)", "Jovens (90 dias)"]
+# Criptografia simples para o exemplo (O Streamlit requer isso)
+authenticator = stauth.Authenticate(
+    config['credentials'],
+    config['cookie']['name'],
+    config['cookie']['key'],
+    config['cookie']['expiry_days']
 )
 
-st.sidebar.markdown("---")
-st.sidebar.info("Projeto: Comunicando Igrejas\nVersão Bíblica: ARA")
+# Renderiza o formulário de Login
+name, authentication_status, username = authenticator.login('Login - Paz do Senhor!', 'main')
 
-# --- CONTEÚDO DINÂMICO ---
-
-if plano_selecionado == "Devocional Diário":
-    st.subheader("🔥 Palavra do Dia")
-    st.warning("**Versículo:** 'Lâmpada para os meus pés é tua palavra e luz, para o meu caminho.' — Salmos 119:105 (ARA)")
+if authentication_status:
+    # --- ÁREA LOGADA DO IRMÃO ---
+    authenticator.logout('Sair do App', 'sidebar')
     
-    col1, col2 = st.columns(2)
-    with col1:
-        st.success("✅ **Reflexão:** A Palavra é o mapa do cristão. Sem ela, tropeçamos nas trevas deste mundo.")
-    with col2:
-        st.info("🙏 **Oração:** Peça ao Senhor discernimento para as decisões de hoje.")
+    st.sidebar.title(f"Bem-vindo, {name}!")
+    st.sidebar.markdown("---")
+    
+    # Simulação de progresso salvo (isso viria de um banco de dados)
+    # No Streamlit, usamos 'session_state' para manter enquanto o app roda
+    if 'progresso' not in st.session_state:
+        st.session_state['progresso'] = 10  # Exemplo: parou no dia 10
 
-elif plano_selecionado == "Casais (30 dias)":
-    st.subheader("💍 Plano para Casais Abençoados")
-    dia = st.slider("Selecione o dia da jornada:", 1, 30, 1)
-    st.write(f"**Dia {dia}:** Leitura sugerida em Efésios 5.")
-    st.progress(dia / 30)
-    st.checkbox("Concluí a leitura de hoje!")
+    st.title("🙏 Seu Progresso de Leitura")
+    
+    plano = st.selectbox("Selecione seu plano ativo:", ["Bíblia em 1 Ano", "Casais 30 Dias", "Jovens 90 Dias"])
+    
+    # Barra de progresso baseada no que foi salvo
+    progresso_atual = st.session_state['progresso']
+    st.write(f"Varão, você está no **Dia {progresso_atual}** do plano {plano}.")
+    st.progress(progresso_atual / 365 if "1 Ano" in plano else progresso_atual / 30)
 
-elif plano_selecionado == "Bíblia em 1 Ano (ARA)":
-    st.subheader("📜 Percorrendo as Escrituras")
-    st.write("Siga o cronograma para ler toda a Bíblia este ano.")
-    # Exemplo de tabela de leitura
-    st.table({
-        "Data": ["Hoje", "Amanhã"],
-        "Leitura": ["Gênesis 1-3", "Gênesis 4-6"],
-        "Status": ["Pendente", "Pendente"]
-    })
+    if st.button("✅ Marcar dia de hoje como lido"):
+        st.session_state['progresso'] += 1
+        st.success("Glória a Deus! Progresso salvo com sucesso.")
+        st.balloons()
 
-# --- RODAPÉ ---
-st.markdown("---")
-st.markdown("<p style='text-align: center; color: #16a085;'>Feito para a glória de Deus pelo Comunicando Igrejas</p>", unsafe_allow_html=True)
+    # --- ÁREA DA PALAVRA (ARA) ---
+    st.markdown("---")
+    st.subheader("📖 Leitura de Hoje (Versão ARA)")
+    st.info("João 3:16 - 'Porque Deus amou ao mundo de tal maneira que deu o seu Filho unigênito, para que todo o que nele crê não pereça, mas tenha a vida eterna.'")
+
+elif authentication_status == False:
+    st.error('Usuário ou senha incorretos, irmão. Tente novamente.')
+elif authentication_status == None:
+    st.warning('Por favor, insira suas credenciais para continuar a leitura.')
+
+# Rodapé Colorido
+st.markdown("""
+    <style>
+    .footer { position: fixed; bottom: 0; width: 100%; text-align: center; color: #8e44ad; }
+    </style>
+    <div class="footer">Comunicando Igrejas - Levando a Palavra ao Digital</div>
+    """, unsafe_allow_html=True)
