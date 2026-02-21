@@ -34,7 +34,15 @@ authenticator = stauth.Authenticate(
 )
 
 # Renderiza o formulário de Login
-name, authentication_status, username = authenticator.login('Login - Paz do Senhor!', 'main')
+# O parâmetro 'location' define onde o formulário aparece
+# O título agora é definido dentro da função ou por um st.header antes
+st.header("Login - Paz do Senhor!")
+authentication_status = authenticator.login(location='main')
+
+# Nas versões novas, os dados ficam guardados no st.session_state
+name = st.session_state["name"]
+authentication_status = st.session_state["authentication_status"]
+username = st.session_state["username"]
 
 if authentication_status:
     # --- ÁREA LOGADA DO IRMÃO ---
